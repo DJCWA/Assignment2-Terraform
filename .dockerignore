@@ -1,0 +1,7 @@
+.git
+*.tf
+cloudbuild.yaml
+README.md
+*.md
+__pycache__/
+.env

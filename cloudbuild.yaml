@@ -1,0 +1,52 @@
+# cloudbuild.yaml
+options:
+  logging: CLOUD_LOGGING_ONLY
+
+availableSecrets:
+  secretManager:
+    - versionName: projects/$PROJECT_ID/secrets/DOCKERHUB_USERNAME/versions/latest
+      env: "DOCKERHUB_USERNAME"
+    - versionName: projects/$PROJECT_ID/secrets/DOCKERHUB_TOKEN/versions/latest
+      env: "DOCKERHUB_TOKEN"
+
+steps:
+  # 1) Login to Docker Hub (for pushing)
+  - name: "gcr.io/cloud-builders/docker"
+    id: "docker-login"
+    entrypoint: "bash"
+    secretEnv: ["DOCKERHUB_USERNAME", "DOCKERHUB_TOKEN"]
+    args:
+      - -c
+      - |
+        echo "$$DOCKERHUB_TOKEN" | docker login -u "$$DOCKERHUB_USERNAME" --password-stdin
+
+  # 2) Build with two tags: commit-specific and latest
+  - name: "gcr.io/cloud-builders/docker"
+    id: "build"
+    args:
+      [
+        "build",
+        "-t","docker.io/daniel082198/allen-flask:${SHORT_SHA}",
+        "-t","docker.io/daniel082198/allen-flask:latest",
+        "."
+      ]
+
+  # 3) Push both tags
+  - name: "gcr.io/cloud-builders/docker"
+    id: "push-commit"
+    args: ["push","docker.io/daniel082198/allen-flask:${SHORT_SHA}"]
+
+  - name: "gcr.io/cloud-builders/docker"
+    id: "push-latest"
+    args: ["push","docker.io/daniel082198/allen-flask:latest"]
+
+  # 4) SSH into the VM and hot-restart the container with the new image
+  - name: "gcr.io/cloud-builders/gcloud"
+    id: "redeploy-on-vm"
+    args:
+      [
+        "compute","ssh","allen-flask-vm",
+        "--zone","northamerica-northeast1-b",
+        "--command",
+        "sudo docker pull docker.io/daniel082198/allen-flask:latest && sudo docker rm -f flask || true && sudo docker run -d --name flask -p 5000:5000 docker.io/daniel082198/allen-flask:latest"
+      ]
