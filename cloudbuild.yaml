@@ -40,13 +40,12 @@ steps:
     id: "push-latest"
     args: ["push","docker.io/daniel082198/allen-flask:latest"]
 
-  # 4) SSH into the VM and hot-restart the container with the new image
+  # 4) Reboot Instance
   - name: "gcr.io/cloud-builders/gcloud"
-    id: "redeploy-on-vm"
-    args:
-      [
-        "compute","ssh","allen-flask-vm",
-        "--zone","northamerica-northeast1-b",
-        "--command",
-        "sudo docker pull docker.io/daniel082198/allen-flask:latest && sudo docker rm -f flask || true && sudo docker run -d --name flask -p 5000:5000 docker.io/daniel082198/allen-flask:latest"
-      ]
+    id: "redeploy-via-reboot"
+    args: [
+      "compute","instances","reset",
+      "allen-flask-vm",
+      "--zone","northamerica-northeast1-b"
+    ]
+
